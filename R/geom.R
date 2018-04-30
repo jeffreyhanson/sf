@@ -128,7 +128,7 @@ st_geos_binop = function(op, x, y, par = 0.0, pattern = NA_character_,
 #' @param x object of class \code{sf}, \code{sfc} or \code{sfg}
 #' @param y object of class \code{sf}, \code{sfc} or \code{sfg}, defaults to \code{x}
 #' @param ... ignored
-#' @param dist_fun deprecated 
+#' @param dist_fun deprecated
 #' @param by_element logical; if \code{TRUE}, return a vector with distance between the first elements of \code{x} and \code{y}, the second, etc. if \code{FALSE}, return the dense matrix with all pairwise distances.
 #' @param which character; if equal to \code{Haussdorf} or \code{Frechet}, Hausdorff resp. Frechet distances are returned
 #' @param par for \code{which} equal to \code{Haussdorf} or \code{Frechet}, use a positive value this to densify the geometry
@@ -236,7 +236,7 @@ st_disjoint		= function(x, y = x, sparse = TRUE, prepared = TRUE) {
 	# disjoint = !intersects :
 	if (sparse)
 		sgbp(lapply(int, function(g) setdiff(1:length(st_geometry(y)), g)),
-			predicate = "disjoint", 
+			predicate = "disjoint",
 			ncol = attr(int, "ncol"),
 			region.id = attr(int, "region.id"))
 	else
@@ -840,10 +840,10 @@ st_difference.sfg = function(x, y)
 
 #' @name geos_binary_ops
 #' @export
-#' @details When \code{st_difference} is called with a single argument, 
+#' @details When \code{st_difference} is called with a single argument,
 #' overlapping areas are erased from geometries that are indexed at greater
-#' numbers in the argument to \code{x}; geometries that are empty 
-#' or contained fully inside geometries with higher priority are removed entirely. 
+#' numbers in the argument to \code{x}; geometries that are empty
+#' or contained fully inside geometries with higher priority are removed entirely.
 #' The \code{st_difference.sfc} method with a single argument returns an object with
 #' an \code{"idx"} attribute with the orginal index for returned geometries.
 st_difference.sfc = function(x, y) {
@@ -907,38 +907,57 @@ st_snap.sf = function(x, y, tolerance)
 #' @export
 #' @param by_feature logical; if TRUE, union each feature, if FALSE return a single feature that is the geometric union of the set of features
 #' @param y object of class \code{sf}, \code{sfc} or \code{sfg} (optional)
+#' @param threads integer; number of threads for processing data
 #' @param ... ignored
 #' @seealso \link{st_intersection}, \link{st_difference}, \link{st_sym_difference}
 #' @return If \code{y} is missing, \code{st_union(x)} returns a single geometry with resolved boundaries, else the geometries for all unioned pairs of x[i] and y[j].
 #' @details
-#' If \code{st_union} is called with a single argument, \code{x}, (with \code{y} missing) and \code{by_feature} is \code{FALSE} all geometries are unioned together and an \code{sfg} or single-geometry \code{sfc} object is returned. If \code{by_feature} is \code{TRUE} each feature geometry is unioned. This can for instance be used to resolve internal boundaries after polygons were combined using \code{st_combine}. If \code{y} is provided, all elements of \code{x} and \code{y} are unioned, pairwise (and \code{by_feature} is ignored). The former corresponds to \link[rgeos]{gUnaryUnion}, the latter to \link[rgeos]{gUnion}.
+#' If \code{st_union} is called with a single argument, \code{x}, (with \code{y} missing) and \code{by_feature} is \code{FALSE} all geometries are unioned together and an \code{sfg} or single-geometry \code{sfc} object is returned. If \code{by_feature} is \code{TRUE} each feature geometry is unioned. This can for instance be used to re	solve internal boundaries after polygons were combined using \code{st_combine}. If \code{y} is provided, all elements of \code{x} and \code{y} are unioned, pairwise (and \code{by_feature} is ignored). The former corresponds to \link[rgeos]{gUnaryUnion}, the latter to \link[rgeos]{gUnion}.
 #'
 #' Unioning a set of overlapping polygons has the effect of merging the areas (i.e. the same effect as iteratively unioning all individual polygons together). Unioning a set of LineStrings has the effect of fully noding and dissolving the input linework. In this context "fully noded" means that there will be a node or endpoint in the output for every endpoint or line segment crossing in the input. "Dissolved" means that any duplicate (e.g. coincident) line segments or portions of line segments will be reduced to a single line segment in the output.	Unioning a set of Points has the effect of merging all identical points (producing a set with no duplicates).
 #' @examples
 #' plot(st_union(nc))
-st_union = function(x, y, ..., by_feature = FALSE) UseMethod("st_union")
+st_union = function(x, y, ..., by_feature = FALSE, threads = 1) UseMethod("st_union")
 
 #' @export
-st_union.sfg = function(x, y, ..., by_feature = FALSE) {
-	out = if (missing(y)) # unary union, possibly by_feature:
-		st_sfc(CPL_geos_union(st_geometry(x), by_feature))
-	else
-		st_union(st_geometry(x), st_geometry(y))
+st_union.sfg = function(x, y, ..., by_feature = FALSE, threads = 1) {
+	is_valid_thread_number(threads)
+	# unary union, possibly by_feature:
+	if (missing(y)) {
+		if (threads == 1) {
+			out = st_sfc(CPL_geos_union(st_geometry(x), by_feature))
+		} else {
+			out = st_sfc(CPL_geos_union2(st_geometry(x), by_feature))
+		}
+	} else {
+		out = st_union(st_geometry(x), st_geometry(y))
+	}
 	get_first_sfg(out)
 }
 
 #' @export
-st_union.sfc = function(x, y, ..., by_feature = FALSE) {
+st_union.sfc = function(x, y, ..., by_feature = FALSE, threads = 1) {
+	is_valid_thread_number(threads)
 	if (missing(y)) # unary union, possibly by_feature:
-		st_sfc(CPL_geos_union(st_geometry(x), by_feature))
-	else
+		if (threads == 1) {
+			st_sfc(CPL_geos_union(st_geometry(x), by_feature))
+		} else {
+			st_sfc(CPL_geos_union2(st_geometry(x), by_feature, threads))
+		}
+	else {
 		geos_op2_geom("union", x, y)
+	}
 }
 
 #' @export
-st_union.sf = function(x, y, ..., by_feature = FALSE) {
+st_union.sf = function(x, y, ..., by_feature = FALSE, threads = 1) {
+	is_valid_thread_number(threads)
 	if (missing(y)) { # unary union, possibly by_feature:
-		geom = st_sfc(CPL_geos_union(st_geometry(x), by_feature))
+		if (threads == 1) {
+			geom = st_sfc(CPL_geos_union(st_geometry(x), by_feature))
+		} else {
+			geom = st_sfc(CPL_geos_union2(st_geometry(x), by_feature, threads))
+		}
 		if (by_feature)
 			st_set_geometry(x, geom)
 		else
