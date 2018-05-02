@@ -14,7 +14,7 @@ is_valid_thread_number = function(threads, stopiffalse = TRUE) {
 		isTRUE(threads < 1) || isTRUE(length(threads) > 1)) {
 		out = FALSE
 		if (stopiffalse) {
-			stop("argument threads must be a single positive finite integer greater than zero")
+			stop("argument to threads must be a single positive finite integer greater than zero")
 		}
 	}
 	if (out && !is_parallel_available() && isTRUE(threads > 1)) {
@@ -28,7 +28,7 @@ is_valid_thread_number = function(threads, stopiffalse = TRUE) {
 			}
 		}
 	}
-	return(out)
+	out
 }
 
 #' Number of processors
