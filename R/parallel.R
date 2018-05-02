@@ -55,7 +55,7 @@ is_parallel_available = function()
 #'
 #' @return character; version of OpenMP library available
 #' @examples
-#' CPL_openmp_version()
+#' openmp_version()
 #' @export
 openmp_version = function()
 	CPL_openmp_version()

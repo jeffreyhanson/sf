@@ -13,5 +13,5 @@ character; version of OpenMP library available
 OpenMP version
 }
 \examples{
-CPL_openmp_version()
+openmp_version()
 }
