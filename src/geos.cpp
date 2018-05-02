@@ -540,65 +540,51 @@ Rcpp::List CPL_geos_union(Rcpp::List sfc, bool by_feature = false) {
 // [[Rcpp::export]]
 Rcpp::List CPL_geos_union2(Rcpp::List sfc, bool by_feature = false, std::size_t threads = 1) {
 	// initialize variables in function
-	Rcpp::Rcout << "here 1" << std::endl;
 	int dim = 2;
-	int n = sfc.size();
 	GEOSContextHandle_t hGEOSCtxt = CPL_geos_init();
 	std::vector<GEOSGeom> gmv = geometries_from_sfc(hGEOSCtxt, sfc, &dim);
 	std::vector<GEOSGeom> gmv_out(by_feature ? sfc.size() : 1);
-	Rcpp::Rcout << "here 2" << std::endl;
+	int n = gmv.size();
 	// initialize thread private geos handle
-	Rcpp::Rcout << "here 3" << std::endl;
 	static GEOSContextHandle_t hGEOSCtxt_tp;
-	Rcpp::Rcout << "here 4" << std::endl;
 	// main processing
 	if (by_feature) {
 		// initialize thread private geos handler if not parallel processing
 		#ifndef _OPENMP
-		Rcpp::Rcout << "here 5" << std::endl;
 		hGEOSCtxt_tp = CPL_geos_init();
 		#endif
 		// initialize thread private geos handle if parallel processing
 		#if _OPENMP
-		Rcpp::Rcout << "here 6" << std::endl;
 		#pragma omp threadprivate(hGEOSCtxt_tp)
 		#pragma omp parallel num_threads(threads)
 		{
 			hGEOSCtxt_tp = CPL_geos_init();
 		}
 		// perform geo-processing
-		#pragma omp parallel for num_threads(threads) private(n) schedule(dynamic)
+		#pragma omp parallel for num_threads(threads) firstprivate(n) schedule(dynamic)
 		#endif
 		for (int i = 0; i < n; i++) {
 			gmv_out[i] = GEOSUnaryUnion_r(hGEOSCtxt_tp, gmv[i]);
 			GEOSGeom_destroy_r(hGEOSCtxt_tp, gmv[i]);
 		}
-		Rcpp::Rcout << "here 7" << std::endl;
 		// finish the thread private geos handle if not parallel processing
 		#ifndef _OPENMP
-		Rcpp::Rcout << "here 8" << std::endl;
 		CPL_geos_finish(hGEOSCtxt_tp);
 		#endif
 		// finish the thread private geos handle if parallel processing
 		#if _OPENMP
-		Rcpp::Rcout << "here 9" << std::endl;
 		#pragma omp parallel num_threads(threads)
 			CPL_geos_finish(hGEOSCtxt_tp);
 		#endif
 	} else {
-		Rcpp::Rcout << "here 10" << std::endl;
 		GEOSGeom gc = GEOSGeom_createCollection_r(hGEOSCtxt, GEOS_GEOMETRYCOLLECTION, gmv.data(), gmv.size());
 		gmv_out[0] = GEOSUnaryUnion_r(hGEOSCtxt, gc);
 		GEOSGeom_destroy_r(hGEOSCtxt, gc);
 	}
-	Rcpp::Rcout << "here 11" << std::endl;
 	Rcpp::List out(sfc_from_geometry(hGEOSCtxt, gmv_out, dim)); // destroys gmv_out
-	Rcpp::Rcout << "here 12" << std::endl;
 	CPL_geos_finish(hGEOSCtxt);
-	Rcpp::Rcout << "here 13" << std::endl;
 	out.attr("precision") = sfc.attr("precision");
 	out.attr("crs") = sfc.attr("crs");
-	Rcpp::Rcout << "here 14" << std::endl;
 	return out;
 }
 

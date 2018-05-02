@@ -8,6 +8,7 @@
 #' @param do_union logical; should grouped geometries be unioned using \link{st_union}?
 #' @param simplify logical; see \link[stats]{aggregate}
 #' @param join logical spatial predicate function to use if \code{by} is a simple features object or geometry; see \link{st_join}
+#' @param threads integer; number of threads for processing data
 #' @return an \code{sf} object with aggregated attributes and geometries; additional grouping variables having the names of \code{names(ids)} or are named \code{Group.i} for \code{ids[[i]]}; see \link[stats]{aggregate}.
 #' @aliases aggregate
 #' @examples
@@ -32,8 +33,8 @@
 #' plot(p_ag3)
 #' @export
 aggregate.sf = function(x, by, FUN, ..., do_union = TRUE, simplify = TRUE,
-		join = st_intersects) {
-
+		join = st_intersects, threads = 1) {
+	is_valid_thread_number(threads)
 	if (inherits(by, "sf") || inherits(by, "sfc")) {
 		if (inherits(by, "sfc"))
 			by = st_sf(by)
@@ -57,7 +58,7 @@ aggregate.sf = function(x, by, FUN, ..., do_union = TRUE, simplify = TRUE,
 		geom = do.call(st_sfc, lst[!sapply(lst, is.null)])
 
 		if (do_union)
-			geom = st_union(geom, by_feature = TRUE)
+			geom = st_union(geom, by_feature = TRUE, threads = threads)
 		st_geometry(x) = NULL
 		x = aggregate(x, by, FUN, ..., simplify = simplify)
 		st_geometry(x) = geom # coerces to sf
