@@ -6,7 +6,7 @@
 \title{aggregate an \code{sf} object}
 \usage{
 \method{aggregate}{sf}(x, by, FUN, ..., do_union = TRUE, simplify = TRUE,
-  join = st_intersects)
+  join = st_intersects, threads = 1)
 }
 \arguments{
 \item{x}{object of class \link{sf}}
@@ -22,6 +22,8 @@
 \item{simplify}{logical; see \link[stats]{aggregate}}
 
 \item{join}{logical spatial predicate function to use if \code{by} is a simple features object or geometry; see \link{st_join}}
+
+\item{threads}{integer; number of threads for processing data}
 }
 \value{
 an \code{sf} object with aggregated attributes and geometries; additional grouping variables having the names of \code{names(ids)} or are named \code{Group.i} for \code{ids[[i]]}; see \link[stats]{aggregate}.
@@ -56,6 +58,6 @@ pol = st_sfc(st_polygon(list(m3)), st_polygon(list(m1)), st_polygon(list(m2)))
 (p_ag3 = aggregate(p, pol, mean))
 plot(p_ag3)
 # In case we need to pass an argument to the join function:
-(p_ag4 = aggregate(p, pol, mean, 
+(p_ag4 = aggregate(p, pol, mean,
      join = function(x, y) st_is_within_distance(x, y, dist = 0.3)))
 }

@@ -19,6 +19,8 @@
 
 #include "wkb.h"
 
+#include "openmp.h"
+
 typedef int (* dist_fn)(GEOSContextHandle_t, const GEOSGeometry *, const GEOSGeometry *, double *);
 typedef int (* dist_parfn)(GEOSContextHandle_t, const GEOSGeometry *, const GEOSGeometry *, double, double *);
 typedef char (* log_fn)(GEOSContextHandle_t, const GEOSGeometry *, const GEOSGeometry *);
@@ -502,6 +504,57 @@ Rcpp::List CPL_geos_union(Rcpp::List sfc, bool by_feature = false) {
 		GEOSGeom_destroy_r(hGEOSCtxt, gc);
 	}
 
+	Rcpp::List out(sfc_from_geometry(hGEOSCtxt, gmv_out, dim)); // destroys gmv_out
+	CPL_geos_finish(hGEOSCtxt);
+	out.attr("precision") = sfc.attr("precision");
+	out.attr("crs") = sfc.attr("crs");
+	return out;
+}
+
+// [[Rcpp::export]]
+Rcpp::List CPL_geos_union2(Rcpp::List sfc, bool by_feature = false, std::size_t threads = 1) {
+	// initialize variables in function
+	int dim = 2;
+	GEOSContextHandle_t hGEOSCtxt = CPL_geos_init();
+	std::vector<GEOSGeom> gmv = geometries_from_sfc(hGEOSCtxt, sfc, &dim);
+	std::vector<GEOSGeom> gmv_out(by_feature ? sfc.size() : 1);
+	int n = gmv.size();
+	// initialize thread private geos handle
+	static GEOSContextHandle_t hGEOSCtxt_tp;
+	// main processing
+	if (by_feature) {
+		// initialize thread private geos handler if not parallel processing
+		#ifndef _OPENMP
+		hGEOSCtxt_tp = CPL_geos_init();
+		#endif
+		// initialize thread private geos handle if parallel processing
+		#if _OPENMP
+		#pragma omp threadprivate(hGEOSCtxt_tp)
+		#pragma omp parallel num_threads(threads)
+		{
+			hGEOSCtxt_tp = CPL_geos_init();
+		}
+		// perform geo-processing
+		#pragma omp parallel for num_threads(threads) firstprivate(n) schedule(dynamic)
+		#endif
+		for (int i = 0; i < n; i++) {
+			gmv_out[i] = GEOSUnaryUnion_r(hGEOSCtxt_tp, gmv[i]);
+			GEOSGeom_destroy_r(hGEOSCtxt_tp, gmv[i]);
+		}
+		// finish the thread private geos handle if not parallel processing
+		#ifndef _OPENMP
+		CPL_geos_finish(hGEOSCtxt_tp);
+		#endif
+		// finish the thread private geos handle if parallel processing
+		#if _OPENMP
+		#pragma omp parallel num_threads(threads)
+			CPL_geos_finish(hGEOSCtxt_tp);
+		#endif
+	} else {
+		GEOSGeom gc = GEOSGeom_createCollection_r(hGEOSCtxt, GEOS_GEOMETRYCOLLECTION, gmv.data(), gmv.size());
+		gmv_out[0] = GEOSUnaryUnion_r(hGEOSCtxt, gc);
+		GEOSGeom_destroy_r(hGEOSCtxt, gc);
+	}
 	Rcpp::List out(sfc_from_geometry(hGEOSCtxt, gmv_out, dim)); // destroys gmv_out
 	CPL_geos_finish(hGEOSCtxt);
 	out.attr("precision") = sfc.attr("precision");

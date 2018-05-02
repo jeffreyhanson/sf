@@ -932,6 +932,7 @@ st_snap.sf = function(x, y, tolerance)
 #' @param by_feature logical; if TRUE, union each feature, if FALSE return a single feature that is the geometric union of the set of features
 #' @param y object of class \code{sf}, \code{sfc} or \code{sfg} (optional)
 #' @param ... ignored
+#' @param threads integer; number of threads for processing data
 #' @seealso \link{st_intersection}, \link{st_difference}, \link{st_sym_difference}
 #' @return If \code{y} is missing, \code{st_union(x)} returns a single geometry with resolved boundaries, else the geometries for all unioned pairs of x[i] and y[j].
 #' @details
@@ -940,35 +941,55 @@ st_snap.sf = function(x, y, tolerance)
 #' Unioning a set of overlapping polygons has the effect of merging the areas (i.e. the same effect as iteratively unioning all individual polygons together). Unioning a set of LineStrings has the effect of fully noding and dissolving the input linework. In this context "fully noded" means that there will be a node or endpoint in the output for every endpoint or line segment crossing in the input. "Dissolved" means that any duplicate (e.g. coincident) line segments or portions of line segments will be reduced to a single line segment in the output.	Unioning a set of Points has the effect of merging all identical points (producing a set with no duplicates).
 #' @examples
 #' plot(st_union(nc))
-st_union = function(x, y, ..., by_feature = FALSE) UseMethod("st_union")
+st_union = function(x, y, ..., by_feature = FALSE, threads = 1) UseMethod("st_union")
 
 #' @export
-st_union.sfg = function(x, y, ..., by_feature = FALSE) {
-	out = if (missing(y)) # unary union, possibly by_feature:
-		st_sfc(CPL_geos_union(st_geometry(x), by_feature))
-	else
-		st_union(st_geometry(x), st_geometry(y))
+st_union.sfg = function(x, y, ..., by_feature = FALSE, threads = 1) {
+	is_valid_thread_number(threads)
+	# unary union, possibly by_feature:
+	if (missing(y)) {
+		if (threads == 1) {
+			out = st_sfc(CPL_geos_union(st_geometry(x), by_feature))
+		} else {
+			out = st_sfc(CPL_geos_union2(st_geometry(x), by_feature, threads))
+		}
+	} else {
+		out = st_union(st_geometry(x), st_geometry(y))
+	}
 	get_first_sfg(out)
 }
 
 #' @export
-st_union.sfc = function(x, y, ..., by_feature = FALSE) {
+st_union.sfc = function(x, y, ..., by_feature = FALSE, threads = 1) {
+	is_valid_thread_number(threads)
 	if (missing(y)) # unary union, possibly by_feature:
-		st_sfc(CPL_geos_union(st_geometry(x), by_feature))
-	else
+		if (threads == 1) {
+			st_sfc(CPL_geos_union(st_geometry(x), by_feature))
+		} else {
+			st_sfc(CPL_geos_union2(st_geometry(x), by_feature, threads))
+		}
+	else {
 		geos_op2_geom("union", x, y)
+	}
 }
 
 #' @export
-st_union.sf = function(x, y, ..., by_feature = FALSE) {
+st_union.sf = function(x, y, ..., by_feature = FALSE, threads = 1) {
+	is_valid_thread_number(threads)
 	if (missing(y)) { # unary union, possibly by_feature:
-		geom = st_sfc(CPL_geos_union(st_geometry(x), by_feature))
-		if (by_feature)
+		if (threads == 1) {
+			geom = st_sfc(CPL_geos_union(st_geometry(x), by_feature))
+		} else {
+			geom = st_sfc(CPL_geos_union2(st_geometry(x), by_feature, threads))
+		}
+		if (by_feature) {
 			st_set_geometry(x, geom)
-		else
+		} else {
 			geom
-	} else
+		}
+	} else {
 		geos_op2_df(x, y, geos_op2_geom("union", x, y))
+	}
 }
 
 #' Sample points on a linear geometry

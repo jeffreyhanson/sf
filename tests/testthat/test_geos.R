@@ -169,6 +169,22 @@ test_that("st_union works with by_feature", {
   expect_silent(z <- st_union(x[[3]], by_feature = TRUE))
 })
 
+test_that("st_union works with by_feature and multiple threads", {
+  p = st_point(0:1)
+  l = st_linestring(matrix(1:10,,2))
+  pl = st_polygon(list(rbind(c(0,0),c(1,0),c(1,1),c(0,1),c(0,0))))
+  x = list(pl, st_sfc(pl,l,pl), st_sf(a=5:7, st_sfc(pl,l,pl), agr = "constant"))
+  expect_silent(z1 <- st_union(x[[1]], by_feature = TRUE))
+  expect_silent(z2 <- st_union(x[[2]], by_feature = TRUE))
+  expect_silent(z3 <- st_union(x[[3]], by_feature = TRUE))
+  expect_silent(z4 <- st_union(x[[1]], by_feature = TRUE, threads = 2))
+  expect_silent(z5 <- st_union(x[[2]], by_feature = TRUE, threads = 2))
+  expect_silent(z6 <- st_union(x[[3]], by_feature = TRUE, threads = 2))
+  expect_equal(z1, z4)
+  expect_equal(z2, z5)
+  expect_equal(z3, z6)
+})
+
 test_that("st_difference works with partially overlapping geometries", {
 	# create input testing data
 	pl1 = st_polygon(list(matrix(c(0, 0, 2, 0, 1, 1, 0 ,0), byrow = TRUE, ncol=2)))

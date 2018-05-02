@@ -1,9 +1,9 @@
 #' aggregate an \code{sf} object
 #'
 #' aggregate an \code{sf} object, possibly union-ing geometries
-#' 
+#'
 #' @note Does not work using the formula notation involving \code{~} defined in \link[stats]{aggregate}.
-#' 
+#'
 #' @param x object of class \link{sf}
 #' @param by either a list of grouping vectors with length equal to \code{nrow(x)} (see \link[stats]{aggregate}), or an object of class \code{sf} or \code{sfc} with geometries that are used to generate groupings, using the binary predicate specified by the argument \code{join}
 #' @param FUN function passed on to \link[stats]{aggregate}, in case \code{ids} was specified and attributes need to be grouped
@@ -11,6 +11,7 @@
 #' @param do_union logical; should grouped geometries be unioned using \link{st_union}? See details.
 #' @param simplify logical; see \link[stats]{aggregate}
 #' @param join logical spatial predicate function to use if \code{by} is a simple features object or geometry; see \link{st_join}
+#' @param threads integer; number of threads for processing data
 #' @return an \code{sf} object with aggregated attributes and geometries; additional grouping variables having the names of \code{names(ids)} or are named \code{Group.i} for \code{ids[[i]]}; see \link[stats]{aggregate}.
 #' @details In case \code{do_union} is \code{FALSE}, \code{aggregate} will simply combine geometries using \link{c.sfg}. When polygons sharing a boundary are combined, this leads to geometries that are invalid; see \url{https://github.com/r-spatial/sf/issues/681}.
 #' @aliases aggregate
@@ -35,12 +36,12 @@
 #' (p_ag3 = aggregate(p, pol, mean))
 #' plot(p_ag3)
 #' # In case we need to pass an argument to the join function:
-#' (p_ag4 = aggregate(p, pol, mean, 
+#' (p_ag4 = aggregate(p, pol, mean,
 #'      join = function(x, y) st_is_within_distance(x, y, dist = 0.3)))
 #' @export
 aggregate.sf = function(x, by, FUN, ..., do_union = TRUE, simplify = TRUE,
-		join = st_intersects) {
-
+		join = st_intersects, threads = 1) {
+	is_valid_thread_number(threads)
 	if (inherits(by, "sf") || inherits(by, "sfc")) {
 		if (inherits(by, "sfc"))
 			by = st_sf(by)
@@ -64,7 +65,7 @@ aggregate.sf = function(x, by, FUN, ..., do_union = TRUE, simplify = TRUE,
 		geom = do.call(st_sfc, lst[!sapply(lst, is.null)])
 
 		if (do_union)
-			geom = st_union(geom, by_feature = TRUE)
+			geom = st_union(geom, by_feature = TRUE, threads = threads)
 
 		st_geometry(x) = NULL
 		x = aggregate(x, by, FUN, ..., simplify = simplify)

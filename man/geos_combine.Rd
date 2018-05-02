@@ -9,7 +9,7 @@
 \usage{
 st_combine(x)
 
-st_union(x, y, ..., by_feature = FALSE)
+st_union(x, y, ..., by_feature = FALSE, threads = 1)
 }
 \arguments{
 \item{x}{object of class \code{sf}, \code{sfc} or \code{sfg}}
@@ -19,6 +19,8 @@ st_union(x, y, ..., by_feature = FALSE)
 \item{...}{ignored}
 
 \item{by_feature}{logical; if TRUE, union each feature, if FALSE return a single feature that is the geometric union of the set of features}
+
+\item{threads}{integer; number of threads for processing data}
 }
 \value{
 \code{st_combine} returns a single, combined geometry, with no resolved boundaries; returned geometries may well be invalid.
